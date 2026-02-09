@@ -1,21 +1,28 @@
-const express = require('express')
-const morgan = require('morgan')
-const cors = require('cors')
+require("dotenv").config();
 
-const app = express()
-app.use(express.json())
-app.use(cors())
-app.use(express.static('dist'))
+const express = require("express");
+const morgan = require("morgan");
+const cors = require("cors");
+const app = express();
+
+
+app.use(express.json());
+app.use(cors());
+app.use(express.static("dist"));
+
+const Person = require("./models/person");
 
 morgan.token("body", function (req) {
-    return JSON.stringify(req.body);
+  return JSON.stringify(req.body);
 });
 
 app.use(
-  morgan(':method :url :status - :response-time ms :body', {
-    skip: function (req, res) { return req.method !==  'POST'}
-  })
-)
+  morgan(":method :url :status - :response-time ms :body", {
+    skip: function (req, res) {
+      return req.method !== "POST";
+    },
+  }),
+);
 
 let data = [
   {
@@ -40,79 +47,75 @@ let data = [
   },
 ];
 
-app.get('/', (request, response) => {
-    response.json(data)
-})
-
 app.get("/api/persons", (request, response) => {
-  response.json(data);
+  Person.find({}).then(people => {
+    response.json(people)
+  })
 });
 
 app.get("/api/persons/:id", (request, response) => {
-    const id = request.params.id
-    const person = data.find(person => person.id === id)
-    if (person) {
-        response.json(person)
-    } else {
-        response.status(404).end()
-    }
+  Person.findById(request.params.id).then(person => {
+    response.json(person)
+  })
 });
 
 app.delete("/api/persons/:id", (request, response) => {
   const id = request.params.id;
-    const person = data.find(person => person.id === id)
-    if (person) {
-        data = data.filter((person) => person.id !== id);
-        response.status(204).end();
-    } else {
-        response.status(404).end()
-    }
+  const person = data.find((person) => person.id === id);
+  if (person) {
+    data = data.filter((person) => person.id !== id);
+    response.status(204).end();
+  } else {
+    response.status(404).end();
+  }
 });
 
 const generateId = () => {
-    const maxId = data.length > 0 ? Math.max(...data.map(person => Number(person.id))) : 0
-    return String(maxId + 1)
-}
+  const maxId =
+    data.length > 0 ? Math.max(...data.map((person) => Number(person.id))) : 0;
+  return String(maxId + 1);
+};
 
 app.post("/api/persons", (request, response) => {
-    const id = generateId()
-    const body = request.body
-    if (!body.name) {
-        response.status(400).json({
-            error: 'name is required and is missing from request body'
-        })
-    }
+  const id = generateId();
+  const body = request.body;
+  if (!body.name) {
+    response.status(400).json({
+      error: "name is required and is missing from request body",
+    });
+  }
 
-    if (!body.number) {
-        response.status(400).json({
-        error: "number is required and is missing from request body",
-        });
-    }
+  if (!body.number) {
+    response.status(400).json({
+      error: "number is required and is missing from request body",
+    });
+  }
 
-    const existing = data.find(person => person.name === body.name)
-    if (existing) {
-        response.status(400).json({
-          error: "name is already on record",
-        });
-    }
+//   const existing = data.find((person) => person.name === body.name);
+//   if (existing) {
+//     response.status(400).json({
+//       error: "name is already on record",
+//     });
+//   }
 
-    const person = {
-        id: id,
-        name: body.name,
-        number: body.number,
-    }
+  const person = new Person({    
+    name: body.name,
+    number: body.number,
+  });
 
-    data = data.concat(person)
-    response.json(person)
+  person.save().then(savedPerson => {
+    response.json(savedPerson);
+  })
+  
 });
 
 app.get("/info", (request, response) => {
-    const info = `<p> Phonebook has info for ${data.length} people</p>`
-    const date = new Date().toString()
-    return response.send(info + `<div>${date}</div>`);
+  const info = `<p> Phonebook has info for ${data.length} people</p>`;
+  const date = new Date().toString();
+  return response.send(info + `<div>${date}</div>`);
 });
 
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`)
-})
+  console.log(`Server running on port ${PORT}`);
+});
